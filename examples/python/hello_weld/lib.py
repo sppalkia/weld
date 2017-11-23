@@ -12,7 +12,7 @@ class HelloWeldVector(object):
     def __init__(self, vector):
         self.vector = vector
         self.weldobj = WeldObject(_encoder, _decoder)
-        name = self.weldobj.update(vector, WeldVec(WeldInt()))
+        name = self.weldobj.update(vector, WeldVec(WeldFloat()))
         self.weldobj.weld_code = name
         self.cached = None
 
@@ -44,6 +44,13 @@ class HelloWeldVector(object):
             self.weldobj.weld_code, str(number))
         return self
 
+    def exp(self):
+        self.cached = None
+        template = "map({0}, |e| exp(e))"
+        self.weldobj.weld_code = template.format(
+            self.weldobj.weld_code)
+        return self
+
     def subtract(self, number):
         self.cached = None
         template = "map({0}, |e| e - {1})"
@@ -61,6 +68,6 @@ class HelloWeldVector(object):
     def __str__(self):
         if self.cached is not None:
             return str(v)
-        v = self.weldobj.evaluate(WeldVec(WeldInt()), verbose=False)
+        v = self.weldobj.evaluate(WeldVec(WeldFloat()), verbose=True)
         self.cached = v
         return str(v)

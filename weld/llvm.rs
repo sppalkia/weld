@@ -253,6 +253,13 @@ impl HelperState {
     }
 }
 
+/// Refers to a unique SIMD intrinsic.
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+enum Intrinsic {
+    SSEF32UnaryOps,
+    AVX2F32UnaryOps,
+}
+
 /// Generates LLVM code for one or more modules.
 pub struct LlvmGenerator {
     /// LLVM type name of the form %s0, %s1, etc for each struct generated.
@@ -276,6 +283,9 @@ pub struct LlvmGenerator {
 
     /// LLVM type names for various builder types
     bld_names: fnv::FnvHashMap<BuilderKind, String>,
+
+    /// Marks whether a vector math intrinsic has been added to the prelude.
+    intrinsics: fnv::FnvHashSet<Intrinsic>,
 
     /// A CodeBuilder and ID generator for prelude functions such as type and struct definitions.
     prelude_code: CodeBuilder,
@@ -312,6 +322,7 @@ impl LlvmGenerator {
             dict_ids: IdGenerator::new("%d"),
             cudf_names: HashSet::new(),
             bld_names: fnv::FnvHashMap::default(),
+            intrinsics: fnv::FnvHashSet::default(),
             prelude_code: CodeBuilder::new(),
             prelude_var_ids: IdGenerator::new("%p.p"),
             body_code: CodeBuilder::new(),
@@ -965,6 +976,13 @@ impl LlvmGenerator {
         let idx_cmp = ctx.var_ids.next();
 
         if par_for.data[0].kind == IterKind::SimdIter {
+
+            // Ensure that the SIMD size is the same for all iters, or things could get ugly.
+            let sz = llvm_simd_size(func.symbol_type(&par_for.data[0].data)?)?;
+            if !par_for.data.iter().all(|ref iter| llvm_simd_size(func.symbol_type(&iter.data).unwrap()).unwrap() == sz) {
+                return weld_err!("Mismatched SIMD size in iterator for loop");
+            }
+
             let check_with_vec = ctx.var_ids.next();
             let vector_len = format!("{}", llvm_simd_size(&elem_ty)?);
             // Would need to compute stride, etc. here.
@@ -2118,7 +2136,7 @@ impl LlvmGenerator {
         else if let Simd(ref ty) = *child_ty {
             let width = llvm_simd_size(child_ty)?;
            // If an intrinsic exists for this SIMD op, use it.
-            if let Ok(op_name) = llvm_simd_unaryop(op_kind, ty, width) {
+            if let Ok(op_name) = self.llvm_simd_unaryop(op_kind, ty, width) {
                 let res_tmp = ctx.var_ids.next();
                 ctx.code.add(format!("{} = call {} {}({} {})", res_tmp, child_ll_ty, op_name, child_ll_ty, child_tmp));
                 self.gen_store_var(&res_tmp, &output_ll_sym, &output_ll_ty, ctx);
@@ -3327,6 +3345,55 @@ impl LlvmGenerator {
             local, len, len, global));
         ctx.code.add(format!("call i32 @puts(i8* {})", local));
     }
+
+    /// Generates a set of intrinsics in the prelude.
+    fn gen_intrinsic_kind(&mut self, intrin: Intrinsic) {
+        use self::Intrinsic::*;
+        if self.intrinsics.contains(&intrin) {
+            return;
+        }
+
+        match intrin {
+            SSEF32UnaryOps => self.prelude_code.add(include_str!("resources/simd/sse_f32_unary_ops.ll")),
+            AVX2F32UnaryOps => self.prelude_code.add(include_str!("resources/simd/avx2_f32_unary_ops.ll")),
+        };
+        self.prelude_code.add("\n");
+        self.intrinsics.insert(intrin);
+    }
+
+    /// Return the name of the SIMD LLVM instruction for the given operation and type.
+    /// Generates a declaration for the operator if its a custom intrinsic.
+    fn llvm_simd_unaryop(&mut self, op_kind: UnaryOpKind, ty: &ScalarKind, width: u32) -> WeldResult<&'static str> {
+        match (op_kind, ty, width) {
+            (UnaryOpKind::Sqrt, &F32, 4) => Ok("@llvm.sqrt.v4f32"),
+            (UnaryOpKind::Sqrt, &F32, 8) => Ok("@llvm.sqrt.v8f32"),
+            (UnaryOpKind::Sqrt, &F64, 2) => Ok("@llvm.sqrt.v2f64"),
+            (UnaryOpKind::Sqrt, &F64, 4) => Ok("@llvm.sqrt.v4f64"),
+
+            (UnaryOpKind::Log, &F32, 4) => {
+                self.gen_intrinsic_kind(Intrinsic::SSEF32UnaryOps);
+                Ok("@log_ps")
+            },
+            (UnaryOpKind::Log, &F32, 8) => {
+                self.gen_intrinsic_kind(Intrinsic::AVX2F32UnaryOps);
+                Ok("@log256_ps")
+            },
+            (UnaryOpKind::Log, &F64, 2) => Ok("@llvm.log.v2f64"),
+            (UnaryOpKind::Log, &F64, 4) => Ok("@llvm.log.v4f64"),
+            (UnaryOpKind::Exp, &F32, 4) => {
+                self.gen_intrinsic_kind(Intrinsic::SSEF32UnaryOps);
+                Ok("@exp_ps")
+            },
+            (UnaryOpKind::Exp, &F32, 8) => {
+                self.gen_intrinsic_kind(Intrinsic::AVX2F32UnaryOps);
+                Ok("@exp256_ps")
+            },
+            (UnaryOpKind::Exp, &F64, 2) => Ok("@llvm.exp.v2f64"),
+            (UnaryOpKind::Exp, &F64, 4) => Ok("@llvm.exp.v4f64"),
+
+            _ => weld_err!("Unsupported unary op: {} on <{} x {}>", op_kind, width, ty),
+        }
+    }
 }
 
 /// Converts an LLVM type string to a prefix for functions operating over the type.
@@ -3334,10 +3401,21 @@ fn llvm_prefix(ty_str: &str) -> String {
     format!("@{}", ty_str.replace("%", ""))
 }
 
-/// Returns a vector size for a type. If a Vetor is passed in, returns the vector size of the
-/// element type. TODO this just returns 4 right now.
-fn llvm_simd_size(_: &Type) -> WeldResult<u32> {
-    Ok(4)
+/// Returns a vector size for a type. If a Vector is passed in, returns the vector size of the
+/// element type. 
+/// 
+/// TODO This depends on machine parameters...assume reasonably recent hardware for now (i.e.,
+/// Haswell with AVX2).
+fn llvm_simd_size(ty: &Type) -> WeldResult<u32> {
+    match *ty {
+        Simd(ref kind) | Scalar(ref kind) if kind.bits() == 32 => {
+            Ok(8)
+        },
+        Simd(ref kind) | Scalar(ref kind) if kind.bits() == 64 => {
+            Ok(4)
+        },
+        _ => Ok(4) // TODO this likely breaks things...
+    }
 }
 
 /// Returns the LLVM name for the `ScalarKind` `k`.
@@ -3531,27 +3609,7 @@ fn llvm_scalar_unaryop(op_kind: UnaryOpKind, ty: &ScalarKind) -> WeldResult<&'st
     }
 }
 
-/// Return the name of the SIMD LLVM instruction for the given operation and type.
-fn llvm_simd_unaryop(op_kind: UnaryOpKind, ty: &ScalarKind, width: u32) -> WeldResult<&'static str> {
-    match (op_kind, ty, width) {
-        (UnaryOpKind::Sqrt, &F32, 4) => Ok("@llvm.sqrt.v4f32"),
-        (UnaryOpKind::Sqrt, &F32, 8) => Ok("@llvm.sqrt.v8f32"),
-        (UnaryOpKind::Sqrt, &F64, 2) => Ok("@llvm.sqrt.v2f64"),
-        (UnaryOpKind::Sqrt, &F64, 4) => Ok("@llvm.sqrt.v4f64"),
 
-        (UnaryOpKind::Log, &F32, 4) => Ok("@llvm.log.v4f32"),
-        (UnaryOpKind::Log, &F32, 8) => Ok("@llvm.log.v8f32"),
-        (UnaryOpKind::Log, &F64, 2) => Ok("@llvm.log.v2f64"),
-        (UnaryOpKind::Log, &F64, 4) => Ok("@llvm.log.v4f64"),
-
-        (UnaryOpKind::Exp, &F32, 4) => Ok("@llvm.exp.v4f32"),
-        (UnaryOpKind::Exp, &F32, 8) => Ok("@llvm.exp.v8f32"),
-        (UnaryOpKind::Exp, &F64, 2) => Ok("@llvm.exp.v2f64"),
-        (UnaryOpKind::Exp, &F64, 4) => Ok("@llvm.exp.v4f64"),
-
-        _ => weld_err!("Unsupported unary op: {} on <{} x {}>", op_kind, width, ty),
-    }
-}
 
 /// Return the name of the LLVM instruction for a binary operation between vectors.
 fn llvm_binop_vector(op_kind: BinOpKind, ty: &Type) -> WeldResult<(&'static str, i32)> {
