@@ -16,8 +16,8 @@ endif
 
 ifeq (${OS}, Darwin)
   # OS X
-  CLANG ?= clang
-  CLANGPP ?= clang++
+  CLANG ?= clang-3.8
+  CLANGPP ?= clang++-3.8
   FLAGS=-march=native -O3 -flto
   DFLAGS=-dynamiclib
   DYLIB_SUFFIX=.dylib

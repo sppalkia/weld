@@ -39,6 +39,8 @@ class DataFrameWeld:
         self.raw_columns = dict()
         for key in self.df:
             raw_column = self.df[key].values
+            if raw_column.dtype == object:
+                raw_column = np.array(self.df[key], dtype=str)
             self.raw_columns[key] = raw_column
 
     def __getitem__(self, key):
@@ -72,7 +74,7 @@ class DataFrameWeld:
                 weld_type,
                 self,
                 key,
-                predicate=None  # Should actually be self.predicates.expr
+                predicate=self.predicates.expr
             )
         elif isinstance(key, tuple):
             (key, should_predicate) = key
@@ -87,7 +89,7 @@ class DataFrameWeld:
             # Can also apply predicate to a dataframe
             if self.predicates is not None:
                 return DataFrameWeld(self.df, key.per_element_and(self.predicates))
-            return DataFrameWeld(self.df, key)
+            return DataFrameWeld(self.df, predicates=key)
         raise Exception("Invalid type in __getitem__")
 
     def __setitem__(self, key, value):
@@ -168,7 +170,7 @@ class DataFrameWeld:
                 grizzly_impl.num_true(self.predicates.expr),
                 WeldInt(),
                 0
-            ).evaluate(passes=passes, num_threads=threads) 
+            )
         return len(self.df)
 
     def __len__(self):
@@ -563,7 +565,8 @@ class SeriesWeld(LazyOpResult):
             self.column_name
         )
 
-    def per_element_and(self, other):
+
+    def per_element(self, other, op):
         """Summary
 
         Args:
@@ -578,13 +581,41 @@ class SeriesWeld(LazyOpResult):
             grizzly_impl.element_wise_op(
                 self.__predicate_helper(),
                 other,
-                "&&",
+                op,
                 self.weld_type
             ),
             self.weld_type,
             self.df,
             self.column_name
         )
+
+    def per_element_and(self, other):
+        """Summary
+
+        Args:
+            other (TYPE): Description
+
+        Returns:
+            TYPE: Description
+        """
+        return self.per_element(other, "&")
+
+    def per_element_or(self, other):
+        """Summary
+
+        Args:
+            other (TYPE): Description
+
+        Returns:
+            TYPE: Description
+        """
+        return self.per_element(other, "|")
+
+    def __and__(self, other):
+        return self.per_element_and(other)
+
+    def __or__(self, other):
+        return self.per_element_or(other)
 
     def mod(self, other):
         """Summary

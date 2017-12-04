@@ -157,7 +157,7 @@ class WeldObject(object):
     def evaluate(self, restype, verbose=True, decode=True, passes=None, num_threads=1):
         function = self.to_weld_func()
 
-        #print function
+        print function
         #cweld.weld_set_log_level(cweld.WeldLogLevelDebug)
 
         # Returns a wrapped ctypes Structure
@@ -181,6 +181,7 @@ class WeldObject(object):
             else:
                 argtypes.append(self.encoder.py_to_weld_type(
                     self.context[name]).ctype_class)
+                #print name, self.context[name]
                 encoded.append(self.encoder.encode(self.context[name]))
         end = time.time()
         if verbose:
