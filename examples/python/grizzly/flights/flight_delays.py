@@ -30,6 +30,7 @@ def run(filename, use_grizzly=False, verbose=False, passes=None, threads=1):
 
     # NYC Airports are JFK, EWR and LGA 
     # subsetting the flights from these airports to Seattle (SEA)
+    print flights_df["Carrier"]
     sea_flights = flights_df[((flights_df['Origin'] == 'JFK') | (flights_df['Origin'] == 'EWR') 
                 | (flights_df['Origin'] == 'LGA')) & (flights_df['Dest'] == 'SEA')]
 
@@ -43,9 +44,8 @@ def run(filename, use_grizzly=False, verbose=False, passes=None, threads=1):
     # mean_delay = sea_flights["ArrDelay"].mean()
 
     if use_grizzly:
-        #num_sea_flights, num_carriers, num_unique_planes = gr.group([num_sea_flights, num_carriers, num_unique_planes]).evaluate(passes=passes, num_threads=threads)
+        # num_sea_flights, num_carriers, num_unique_planes = gr.group([num_sea_flights, num_carriers, num_unique_planes]).evaluate(passes=passes, num_threads=threads)
         # num_sea_flights = num_sea_flights.evaluate(passes=passes, num_threads=threads)
-        print num_carriers
         num_carriers = num_carriers.evaluate(passes=passes, num_threads=threads)
         # num_unique_planes = num_unique_planes.evaluate(passes=passes, num_threads=threads)
 
@@ -55,8 +55,8 @@ def run(filename, use_grizzly=False, verbose=False, passes=None, threads=1):
     print "End-to-End:", e2e_time
 
     if verbose:
-        # print "NYC -> SEA flights:", num_sea_flights
-        print "Carriers:", len(num_carriers)
+        print "NYC -> SEA flights:", num_sea_flights
+        print "Carriers:", num_carriers, len(num_carriers)
         # print "Unique Planes:", num_unique_planes
         # print "Mean Delay:", mean_delay
 

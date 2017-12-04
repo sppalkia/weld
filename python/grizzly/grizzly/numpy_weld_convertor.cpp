@@ -299,6 +299,7 @@ PyObject* weld_to_numpy_char_arr_arr(weld::vec< weld::vec<uint8_t> > inp) {
     Py_Initialize();
 
     int num_rows = inp.size;
+    printf("Number of rows: %d\n", num_rows);
 
     PyObject** ptr_array = (PyObject**) malloc(sizeof(PyObject*) * num_rows);
     _import_array();

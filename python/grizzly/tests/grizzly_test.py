@@ -15,6 +15,13 @@ class PandasWeldTestMethods(unittest.TestCase):
         self.assertItemsEqual(["aaa", "bbb", "ccc"],
                               inp.unique().evaluate(False))
 
+    def test_unique2(self):
+        inp = gr.SeriesWeld(
+            np.array(["AA", "DL", "DL"], dtype=str),
+            gr.WeldVec(gr.WeldChar()))
+        self.assertItemsEqual(["AA", "DL"],
+                              inp.unique().evaluate(False))
+
     def test_sum(self):
         inp = gr.SeriesWeld(
             np.array([1, 2, 3, 4, 5], dtype=np.int32), gr.WeldInt())

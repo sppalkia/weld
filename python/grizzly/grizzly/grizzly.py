@@ -70,11 +70,14 @@ class DataFrameWeld:
             if self.predicates is None:
                 return SeriesWeld(raw_column, weld_type, self, key)
             return SeriesWeld(
-                raw_column,
+                grizzly_impl.filter(
+                    raw_column,
+                    self.predicates.expr,
+                    weld_type
+                ),
                 weld_type,
                 self,
-                key,
-                predicate=self.predicates.expr
+                key
             )
         elif isinstance(key, tuple):
             (key, should_predicate) = key
