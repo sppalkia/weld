@@ -98,6 +98,8 @@ class NumPyEncoder(WeldObjectEncoder):
                 numpy_to_weld = self.utils.numpy_to_weld_int_arr
             elif obj.ndim == 1 and obj.dtype == 'int64':
                 numpy_to_weld = self.utils.numpy_to_weld_long_arr
+            elif obj.ndim == 1 and obj.dtype == 'float32':
+                numpy_to_weld = self.utils.numpy_to_weld_float_arr
             elif obj.ndim == 1 and obj.dtype == 'float64':
                 numpy_to_weld = self.utils.numpy_to_weld_double_arr
             elif obj.ndim == 2 and obj.dtype == 'int32':

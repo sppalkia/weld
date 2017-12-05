@@ -19,9 +19,11 @@ def normalize_df(df):
             df.drop(c, 1)
     return df
 
-def run(filename, use_grizzly=False, verbose=False, passes=None, threads=1):
-    flights_df = pd.read_csv(filename, dtype = {"Origin": str, "Dest": str, "TailNum": str, "ArrDelay": np.float32})
+def run(filename, use_grizzly=False, verbose=False, passes=None, threads=1, group=True):
+    flights_df = pd.read_csv(filename, dtype = {"Origin": str, "Dest": str, "TailNum": str, "ArrDelay": np.float64})
     flights_df = normalize_df(flights_df)
+
+    flights_df["ArrDelay"] = flights_df["ArrDelay"].fillna(0.0)
 
     if use_grizzly:
         flights_df = gr.DataFrameWeld(flights_df)
@@ -30,7 +32,6 @@ def run(filename, use_grizzly=False, verbose=False, passes=None, threads=1):
 
     # NYC Airports are JFK, EWR and LGA 
     # subsetting the flights from these airports to Seattle (SEA)
-    print flights_df["Carrier"]
     sea_flights = flights_df[((flights_df['Origin'] == 'JFK') | (flights_df['Origin'] == 'EWR') 
                 | (flights_df['Origin'] == 'LGA')) & (flights_df['Dest'] == 'SEA')]
 
@@ -39,26 +40,28 @@ def run(filename, use_grizzly=False, verbose=False, passes=None, threads=1):
     else:
         num_sea_flights = len(sea_flights)
 
-    num_carriers = sea_flights["Carrier"].unique()
-    # num_unique_planes = sea_flights["TailNum"].unique()
-    # mean_delay = sea_flights["ArrDelay"].mean()
+    unique_carriers = sea_flights["Carrier"].unique()
+    unique_planes = sea_flights["TailNum"].unique()
+    mean_delay = sea_flights["ArrDelay"].mean()
 
     if use_grizzly:
-        # num_sea_flights, num_carriers, num_unique_planes = gr.group([num_sea_flights, num_carriers, num_unique_planes]).evaluate(passes=passes, num_threads=threads)
-        # num_sea_flights = num_sea_flights.evaluate(passes=passes, num_threads=threads)
-        num_carriers = num_carriers.evaluate(passes=passes, num_threads=threads)
-        # num_unique_planes = num_unique_planes.evaluate(passes=passes, num_threads=threads)
+        if group:
+            unique_carriers, unique_planes, mean_delay, num_sea_flights = gr.group([unique_carriers, unique_planes, mean_delay, num_sea_flights]).evaluate(passes=passes, num_threads=threads)
+        else:
+            unique_carriers = unique_carriers.evaluate(passes=passes, num_threads=threads)
+            unique_planes = unique_planes.evaluate(passes=passes, num_threads=threads)
+            mean_delay = mean_delay.evaluate(passes=passes, num_threads=threads)
+            num_sea_flights = num_sea_flights.evaluate(passes=passes, num_threads=threads)
 
     end = time.time()
-
     e2e_time = end - start
     print "End-to-End:", e2e_time
 
     if verbose:
-        print "NYC -> SEA flights:", num_sea_flights
-        print "Carriers:", num_carriers, len(num_carriers)
-        # print "Unique Planes:", num_unique_planes
-        # print "Mean Delay:", mean_delay
+        print "# NYC -> SEA flights:", num_sea_flights
+        print "Unique Carriers:", unique_carriers
+        print "Unique Planes:", unique_planes
+        print "Mean Delay:", mean_delay
 
 if __name__ == "__main__":
     import argparse

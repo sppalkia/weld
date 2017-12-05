@@ -377,6 +377,21 @@ class SeriesWeld(LazyOpResult):
             self.dim
         )
 
+    def mean(self):
+        """Summary
+
+        Returns:
+            TYPE: Description
+        """
+        return LazyOpResult(
+            grizzly_impl.mean(
+                self.__predicate_helper(),
+                self.weld_type
+            ),
+            self.weld_type,
+            0
+        )
+
     def prod(self):
         """Summary
 

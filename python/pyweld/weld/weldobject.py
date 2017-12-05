@@ -157,9 +157,6 @@ class WeldObject(object):
     def evaluate(self, restype, verbose=True, decode=True, passes=None, num_threads=1):
         function = self.to_weld_func()
 
-        print function
-        #cweld.weld_set_log_level(cweld.WeldLogLevelDebug)
-
         # Returns a wrapped ctypes Structure
         def args_factory(encoded):
             class Args(ctypes.Structure):

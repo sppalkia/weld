@@ -22,6 +22,16 @@ class PandasWeldTestMethods(unittest.TestCase):
         self.assertItemsEqual(["AA", "DL"],
                               inp.unique().evaluate(False))
 
+    def test_mean(self):
+        inp = gr.SeriesWeld(
+            np.array([1, 2, 3, 4, 5], dtype=np.int32), gr.WeldInt())
+        self.assertEqual(3, inp.mean().evaluate(False))
+
+    def test_mean2(self):
+        inp = gr.SeriesWeld(
+            np.array([1, 2, 3, 4, 5], dtype=np.float32), gr.WeldFloat())
+        self.assertEqual(3.0, inp.mean().evaluate(False))
+
     def test_sum(self):
         inp = gr.SeriesWeld(
             np.array([1, 2, 3, 4, 5], dtype=np.int32), gr.WeldInt())

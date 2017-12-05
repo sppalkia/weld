@@ -50,6 +50,35 @@ def unique(array, ty):
     weld_obj.weld_code = weld_template % {"array": array_var, "ty": ty}
     return weld_obj
 
+def mean(array, ty):
+    """
+    Returns the mean.
+
+    Args:
+        array (WeldObject / Numpy.ndarray): Input array
+        ty (WeldType): Type of each element in the input array
+
+    Returns:
+        A WeldObject representing this computation
+    """
+    weld_obj = WeldObject(encoder_, decoder_)
+
+    array_var = weld_obj.update(array)
+    if isinstance(array, WeldObject):
+        array_var = array.obj_id
+        weld_obj.dependencies[array_var] = array
+
+    weld_template = """
+            result(for(
+                %(array)s,
+                merger[%(ty)s,+],
+                |b,i,e|
+                    merge(b, e)
+            )) / %(ty)s (len(%(array)s))
+    """
+    weld_obj.weld_code = weld_template % {"array": array_var, "ty": ty}
+    return weld_obj
+
 
 def aggr(array, op, initial_value, ty):
     """

@@ -392,8 +392,7 @@ fn vectorizable(for_loop: &Expr<Type>) -> Option<HashSet<Symbol>> {
 }
 
 fn should_be_predicated(e: &mut Expr<Type>) -> bool {
-    true
-    //e.annotations.predicate()
+    e.annotations.predicate()
 }
 
 fn get_id_element(ty: &Type, op: &BinOpKind) -> WeldResult<Option<Expr<Type>>> {

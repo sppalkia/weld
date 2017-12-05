@@ -45,6 +45,21 @@ weld::vec<double> numpy_to_weld_double_arr(PyObject* in) {
 }
 
 /**
+ * Converts numpy array to Weld vector.
+ */
+extern "C"
+weld::vec<float> numpy_to_weld_float_arr(PyObject* in) {
+    PyArrayObject* inp = (PyArrayObject*) in;
+    int64_t dimension = (int64_t) PyArray_DIMS(inp)[0];
+    weld::vec<float> t;
+    t.size = dimension;
+    t.ptr = (float*) PyArray_DATA(inp);
+    return t;
+}
+
+
+
+/**
  * Converts numpy array to Weld char vector.
  */
 extern "C"
@@ -299,7 +314,6 @@ PyObject* weld_to_numpy_char_arr_arr(weld::vec< weld::vec<uint8_t> > inp) {
     Py_Initialize();
 
     int num_rows = inp.size;
-    printf("Number of rows: %d\n", num_rows);
 
     PyObject** ptr_array = (PyObject**) malloc(sizeof(PyObject*) * num_rows);
     _import_array();
