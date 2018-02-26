@@ -2806,7 +2806,38 @@ impl LlvmGenerator {
         // Special case: if the value is a SIMD vector, we need to merge each element separately (because the final
         // builder will still operate on scalars). We have specialized functions to merge all of them together for
         // some builders, such as Merger, but for others we just call the merge operation multiple times.
-        if value_ty.is_simd() {
+        //
+        // Special case the VecMerger, which will have type {i64, simd[T]} if it is vectorized.
+        if let VecMerger(ref t, ref op) = *builder_kind {
+            if let Struct(ref tys) = *value_ty {
+                if tys.len() != 2 {
+                    return weld_err!("Codegen error: VecMerger expects {{i64,T}} merge type.");
+                }
+                // XXX This code path is the same as the non-vectorized case right now!
+                if let Simd(_) = tys[1] {
+                    let elem_ll_ty = self.llvm_type(t)?;
+                    let bld_tmp = self.gen_load_var(&bld_ll_sym, &bld_ll_ty, ctx)?;
+                    let val_tmp = self.gen_load_var(&val_ll_sym, &val_ll_ty, ctx)?;
+                    let index_var = ctx.var_ids.next();
+                    let elem_var = ctx.var_ids.next();
+                    ctx.code.add(format!("{} = extractvalue {} {}, 0", index_var, &val_ll_ty, val_tmp));
+                    ctx.code.add(format!("{} = extractvalue {} {}, 1", elem_var, &val_ll_ty, val_tmp));
+                    let bld_ptr_raw = ctx.var_ids.next();
+                    let bld_ptr = ctx.var_ids.next();
+                    ctx.code.add(format!("{} = call i8* {}.merge_ptr({} {}, i64 {}, i32 %cur.tid)",
+                    bld_ptr_raw,
+                    bld_prefix,
+                    bld_ll_ty,
+                    bld_tmp,
+                    index_var));
+                    ctx.code.add(format!("{} = bitcast i8* {} to {}*",
+                                         bld_ptr,
+                                         bld_ptr_raw,
+                                         elem_ll_ty));
+                    self.gen_merge_op(&bld_ptr, &elem_var, &elem_ll_ty, op, t, ctx)?;
+                }
+            }
+        } else if value_ty.is_simd() {
             match *builder_kind {
                 Merger(_, ref op) => {
                     let elem_tmp = self.gen_load_var(&val_ll_sym, &val_ll_ty, ctx)?;

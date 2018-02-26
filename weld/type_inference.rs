@@ -416,7 +416,43 @@ fn infer_locally(expr: &mut PartialExpr, env: &mut TypeMap) -> WeldResult<bool> 
                         }
                     } else {
                         let mty = b.merge_type_mut();
-                        changed |= try!(sync_types(mty, &mut value.ty, "Merge"));
+                        let mut synced = false;
+                        if let VecMerger(_, _, _) = *b {
+                            info!("matched vecmerger");
+                            if let Struct(ref mut tys) = value.ty.clone() {
+                                info!("matched struct 1");
+                                if tys.len() == 2 {
+                                    info!("matched len 1");
+                                    if let Simd(kind) = tys[1] {
+                                        info!("simd 1");
+                                        let mut simd_mty = mty.clone();
+                                        if let Struct(ref mut tys) = *mty {
+                                            info!("struct 2");
+                                            if tys.len() == 2 {
+                                                info!("len 2");
+                                                // guaranteed true.
+                                                if let Struct(ref mut simd_tys) = simd_mty {
+                                                    // This is okay since we just checked the
+                                                    // length above
+                                                    simd_tys[1] = Simd(kind);
+                                                }
+                                                info!("before sync: {:?}, {:?}", simd_mty, value.ty);
+                                                changed |= try!(sync_types(&mut simd_mty, &mut value.ty, "Merge"));
+                                                info!("{:?}, {:?}", simd_mty, value.ty);
+                                                // Ensure that in the vecmerger type, the scalar
+                                                // type appears even if we merge in a SIMD value.
+                                                tys[0] = Scalar(I64);
+                                                tys[1] = Scalar(kind);
+                                                synced = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if !synced {
+                            changed |= try!(sync_types(mty, &mut value.ty, "Merge"));
+                        }
                     }
                 }
                 Unknown => (),
