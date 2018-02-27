@@ -2562,6 +2562,38 @@ impl LlvmGenerator {
                 }
             }
 
+            SimdLookup { ref child, ref index } => {
+                let (output_ll_ty, output_ll_sym) = self.llvm_type_and_name(func, output)?;
+                let (child_ll_ty, child_ll_sym) = self.llvm_type_and_name(func, child)?;
+                let (index_ll_ty, index_ll_sym) = self.llvm_type_and_name(func, index)?;
+                let child_ty = func.symbol_type(child)?;
+                match *child_ty {
+                    Vector(ref kind) => {
+                        let elem_ty = self.llvm_type(kind)?;
+                        let child_prefix = llvm_prefix(&child_ll_ty);
+                        let child_tmp = self.gen_load_var(&child_ll_sym, &child_ll_ty, ctx)?;
+                        let index_tmp = self.gen_load_var(&index_ll_sym, &index_ll_ty, ctx)?;
+                        let tmp1 = ctx.var_ids.next();
+                        let res_ptr = ctx.var_ids.next();
+                        ctx.code.add(format!("{} = call {}* {}.at({} {}, i64 {})",
+                        tmp1,
+                        elem_ty,
+                        child_prefix,
+                        child_ll_ty,
+                        child_tmp,
+                        index_tmp));
+                        ctx.code.add(format!("{} = bitcast {}* {} to {}*",
+                                             res_ptr,
+                                             elem_ty,
+                                             tmp1,
+                                             output_ll_ty));
+                        let res_tmp = self.gen_load_var(&res_ptr, &output_ll_ty, ctx)?;
+                        self.gen_store_var(&res_tmp, &output_ll_sym, &output_ll_ty, ctx);
+                    }
+                    _ => weld_err!("Illegal type {} in SimdLookup", print_type(child_ty))?,
+                }
+            }
+
             KeyExists { ref child, ref key } => {
                 let (output_ll_ty, output_ll_sym) = self.llvm_type_and_name(func, output)?;
                 let (child_ll_ty, child_ll_sym) = self.llvm_type_and_name(func, child)?;

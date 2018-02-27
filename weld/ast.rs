@@ -306,6 +306,10 @@ pub enum ExprKind<T: TypeBounds> {
         data: Box<Expr<T>>,
         index: Box<Expr<T>>,
     },
+    SimdLookup {
+        data: Box<Expr<T>>,
+        index: Box<Expr<T>>,
+    },
     KeyExists {
         data: Box<Expr<T>>,
         key: Box<Expr<T>>,
@@ -384,6 +388,7 @@ impl<T: TypeBounds> ExprKind<T> {
             GetField { .. } => "GetField",
             Length { .. } => "Length",
             Lookup { .. } => "Lookup",
+            SimdLookup { .. } => "SimdLookup",
             KeyExists { .. } => "KeyExists",
             Slice { .. } => "Slice",
             Sort { .. } => "Sort",
@@ -558,6 +563,10 @@ impl<T: TypeBounds> Expr<T> {
                 ref data,
                 ref index,
             } => vec![data.as_ref(), index.as_ref()],
+            SimdLookup {
+                ref data,
+                ref index,
+            } => vec![data.as_ref(), index.as_ref()],
             KeyExists { ref data, ref key } => vec![data.as_ref(), key.as_ref()],
             Slice {
                 ref data,
@@ -659,6 +668,11 @@ impl<T: TypeBounds> Expr<T> {
                 ref mut data,
                 ref mut index,
             } => vec![data.as_mut(), index.as_mut()],
+            SimdLookup {
+                ref mut data,
+                ref mut index,
+            } => vec![data.as_mut(), index.as_mut()],
+
             KeyExists {
                 ref mut data,
                 ref mut key,
@@ -796,6 +810,7 @@ impl<T: TypeBounds> Expr<T> {
                 }
                 (&Length { .. }, &Length { .. }) => Ok(true),
                 (&Lookup { .. }, &Lookup { .. }) => Ok(true),
+                (&SimdLookup { .. }, &SimdLookup { .. }) => Ok(true),
                 (&KeyExists { .. }, &KeyExists { .. }) => Ok(true),
                 (&Slice { .. }, &Slice { .. }) => Ok(true),
                 (&Sort { .. }, &Sort { .. }) => Ok(true),

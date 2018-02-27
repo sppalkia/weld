@@ -49,6 +49,10 @@ pub enum StatementKind {
         child: Symbol,
         index: Symbol,
     },
+    SimdLookup {
+        child: Symbol,
+        index: Symbol,
+    },
     MakeStruct(Vec<Symbol>),
     MakeVector(Vec<Symbol>),
     Merge { builder: Symbol, value: Symbol },
@@ -109,6 +113,13 @@ impl StatementKind {
                 vars.push(child);
             }
             Lookup {
+                ref child,
+                ref index,
+            } => {
+                vars.push(child);
+                vars.push(index);
+            }
+            SimdLookup {
                 ref child,
                 ref index,
             } => {
@@ -506,6 +517,11 @@ impl fmt::Display for StatementKind {
                 ref child,
                 ref index,
             } => write!(f, "lookup({}, {})", child, index),
+            SimdLookup {
+                ref child,
+                ref index,
+            } => write!(f, "simdlookup({}, {})", child, index),
+
             Res(ref builder) => write!(f, "result({})", builder),
             Select {
                 ref cond,
@@ -866,6 +882,21 @@ fn gen_expr(expr: &TypedExpr,
             let (cur_func, cur_block, index_sym) = gen_expr(index, prog, cur_func, cur_block, tracker, multithreaded)?;
 
             let kind = Lookup {
+                child: data_sym,
+                index: index_sym.clone(),
+            };
+            let res_sym = tracker.symbol_for_statement(prog, cur_func, cur_block, &expr.ty, kind);
+            Ok((cur_func, cur_block, res_sym))
+        }
+
+        ExprKind::SimdLookup {
+            ref data,
+            ref index,
+        } => {
+            let (cur_func, cur_block, data_sym) = gen_expr(data, prog, cur_func, cur_block, tracker, multithreaded)?;
+            let (cur_func, cur_block, index_sym) = gen_expr(index, prog, cur_func, cur_block, tracker, multithreaded)?;
+
+            let kind = SimdLookup {
                 child: data_sym,
                 index: index_sym.clone(),
             };

@@ -290,6 +290,7 @@ impl PartialExpr {
             }
 
             Length { ref data } => Length { data: try!(typed_box(data)) },
+
             Lookup {
                 ref data,
                 ref index,
@@ -299,6 +300,17 @@ impl PartialExpr {
                     index: try!(typed_box(index)),
                 }
             }
+            
+            SimdLookup {
+                ref data,
+                ref index,
+            } => {
+                SimdLookup {
+                    data: try!(typed_box(data)),
+                    index: try!(typed_box(index)),
+                }
+            }
+
             KeyExists { ref data, ref key } => {
                 KeyExists {
                     data: try!(typed_box(data)),

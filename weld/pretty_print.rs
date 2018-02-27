@@ -348,6 +348,15 @@ fn print_expr_impl<T: PrintableType>(expr: &Expr<T>,
                     print_expr_impl(index, typed, indent, should_indent))
         }
 
+        SimdLookup {
+            ref data,
+            ref index,
+        } => {
+            format!("simdlookup({},{})",
+                    print_expr_impl(data, typed, indent, should_indent),
+                    print_expr_impl(index, typed, indent, should_indent))
+        }
+
         KeyExists { ref data, ref key } => {
             format!("keyexists({},{})",
                     print_expr_impl(data, typed, indent, should_indent),

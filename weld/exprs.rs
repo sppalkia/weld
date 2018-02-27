@@ -155,6 +155,25 @@ pub fn lookup_expr(data: Expr<Type>, index: Expr<Type>) -> WeldResult<Expr<Type>
     }
 }
 
+pub fn simd_lookup_expr(data: Expr<Type>, index: Expr<Type>) -> WeldResult<Expr<Type>> {
+    let err = weld_err!("Internal error: Mismatched types in lookup_expr");
+    let ty = if let Vector(ref ty) = data.ty {
+        *ty.clone()
+    } else {
+        return err;
+    };
+
+    if let Scalar(ScalarKind::I64) = index.ty {
+        new_expr(SimdLookup {
+                     data: Box::new(data),
+                     index: Box::new(index),
+                 },
+                 ty)
+    } else {
+        err
+    }
+}
+
 pub fn keyexists_expr(data: Expr<Type>, key: Expr<Type>) -> WeldResult<Expr<Type>> {
     let err = weld_err!("Internal error: Mismatched types in keyexists_expr");
     let kt = if let Dict(ref kt, _) = data.ty {

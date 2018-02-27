@@ -363,6 +363,30 @@ fn infer_locally(expr: &mut PartialExpr, env: &mut TypeMap) -> WeldResult<bool> 
             }
         }
 
+        SimdLookup {
+            ref mut data,
+            ref mut index,
+        } => {
+            if let Vector(ref elem_type) = data.ty {
+                let ref simd_ty = match *elem_type.as_ref() {
+                    Scalar(ref kind ) => Simd(*kind),
+                    Simd(ref kind) => Simd(*kind),
+                    _ => {
+                        return weld_err!("SimdLookup only comptabile with vec[simd[T]]\
+                                          or vector of scalars, called on vec of {:?}", elem_type);
+                    }
+                };
+                let mut changed = false;
+                changed |= try!(push_complete_type(&mut index.ty, Scalar(I64), "SimdLookup"));
+                changed |= try!(push_type(&mut expr.ty, simd_ty, "SimdLookup"));
+                Ok(changed)
+            } else if data.ty == Unknown {
+                Ok(false)
+            } else {
+                weld_err!("Internal error: SimdLookup called on {:?}", data.ty)
+            }
+        }
+
         KeyExists {
             ref mut data,
             ref mut key,
