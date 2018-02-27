@@ -942,6 +942,29 @@ impl<'t> Parser<'t> {
                 Ok(expr_box(Length { data: data }, Annotations::new()))
             }
 
+            TSimdReduce => {
+                let bin_op;
+                try!(self.consume(TOpenParen));
+                let data = try!(self.expr());
+                self.consume(TComma)?;
+                match *self.peek() {
+                    TPlus => {
+                        self.consume(TPlus)?;
+                        bin_op = Add;
+                    }
+                    TTimes => {
+                        self.consume(TTimes)?;
+                        bin_op = Multiply;
+                    }
+                    ref t => {
+                        return weld_err!("expected commutative binary op in simdreduce but got '{}'",
+                                         t);
+                    }
+                };
+                try!(self.consume(TCloseParen));
+                Ok(expr_box(SimdReduce { kind: bin_op, value: data }, Annotations::new()))
+            }
+
             TLookup => {
                 try!(self.consume(TOpenParen));
                 let data = try!(self.expr());

@@ -2562,6 +2562,32 @@ impl LlvmGenerator {
                 }
             }
 
+            SimdReduce { ref kind, ref value } => {
+                let (output_ll_ty, output_ll_sym) = self.llvm_type_and_name(func, output)?;
+                let (child_ll_ty, child_ll_sym) = self.llvm_type_and_name(func, value)?;
+
+                let child_ty = func.symbol_type(value)?;
+                let out_ty = func.symbol_type(output)?;
+                let binop = llvm_binop(*kind, out_ty)?;
+
+                let child_tmp = self.gen_load_var(&child_ll_sym, &child_ll_ty, ctx)?;
+
+                // Reduce the SIMD vector into a scalar with the given bin op.
+                let mut prev = self.gen_simd_extract(&child_ty, &child_tmp, 0, ctx)?;
+                for i in 1..llvm_simd_size(&child_ty)? {
+                    let item = self.gen_simd_extract(&child_ty, &child_tmp, i, ctx)?;
+                    let tmp = ctx.var_ids.next();
+                    ctx.code.add(format!("{} = {} {} {}, {}",
+                                 tmp,
+                                 binop,
+                                 &output_ll_ty,
+                                 prev,
+                                 item));
+                    prev = tmp;
+                }
+                self.gen_store_var(&prev, &output_ll_sym, &output_ll_ty, ctx);
+            }
+
             SimdLookup { ref child, ref index } => {
                 let (output_ll_ty, output_ll_sym) = self.llvm_type_and_name(func, output)?;
                 let (child_ll_ty, child_ll_sym) = self.llvm_type_and_name(func, child)?;

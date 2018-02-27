@@ -81,6 +81,9 @@ impl ExprHash {
             UnaryOp {ref kind, .. } => {
                 kind.hash(&mut self.hasher);
             }
+            SimdReduce {ref kind, .. } => {
+                kind.hash(&mut self.hasher)
+            }
             Cast { ref kind, .. } =>  {
                 kind.hash(&mut self.hasher);
             }

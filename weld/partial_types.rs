@@ -291,6 +291,13 @@ impl PartialExpr {
 
             Length { ref data } => Length { data: try!(typed_box(data)) },
 
+            SimdReduce { ref kind, ref value } => {
+                SimdReduce {
+                    kind: kind.clone(),
+                    value: try!(typed_box(value))
+                }
+            }
+
             Lookup {
                 ref data,
                 ref index,

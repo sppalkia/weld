@@ -304,6 +304,16 @@ fn infer_locally(expr: &mut PartialExpr, env: &mut TypeMap) -> WeldResult<bool> 
             push_complete_type(&mut expr.ty, Scalar(I64), "Length")
         }
 
+        SimdReduce { ref mut value, .. } => {
+            match value.ty {
+                Simd(ref kind) => {
+                    return push_complete_type(&mut expr.ty, Scalar(*kind), "")
+                }
+                Unknown => Ok(false),
+                _ => return weld_err!("Internal error: SimdReduce called on non-SIMD value"),
+            }
+        }
+
         Slice {
             ref mut data,
             ref mut index,

@@ -49,6 +49,10 @@ pub enum StatementKind {
         child: Symbol,
         index: Symbol,
     },
+    SimdReduce {
+        kind: BinOpKind,
+        value: Symbol,
+    },
     SimdLookup {
         child: Symbol,
         index: Symbol,
@@ -125,6 +129,12 @@ impl StatementKind {
             } => {
                 vars.push(child);
                 vars.push(index);
+            }
+            SimdReduce {
+                ref value,
+                ..
+            } => {
+                vars.push(value);
             }
             KeyExists { ref child, ref key } => {
                 vars.push(child);
@@ -517,10 +527,16 @@ impl fmt::Display for StatementKind {
                 ref child,
                 ref index,
             } => write!(f, "lookup({}, {})", child, index),
+
             SimdLookup {
                 ref child,
                 ref index,
             } => write!(f, "simdlookup({}, {})", child, index),
+            
+            SimdReduce {
+                ref kind,
+                ref value,
+            } => write!(f, "simdreduce({}, {})", value, kind),
 
             Res(ref builder) => write!(f, "result({})", builder),
             Select {
@@ -899,6 +915,19 @@ fn gen_expr(expr: &TypedExpr,
             let kind = SimdLookup {
                 child: data_sym,
                 index: index_sym.clone(),
+            };
+            let res_sym = tracker.symbol_for_statement(prog, cur_func, cur_block, &expr.ty, kind);
+            Ok((cur_func, cur_block, res_sym))
+        }
+
+        ExprKind::SimdReduce {
+            ref kind,
+            ref value,
+        } => {
+            let (cur_func, cur_block, value_sym) = gen_expr(value, prog, cur_func, cur_block, tracker, multithreaded)?;
+            let kind = SimdReduce {
+                kind: *kind,
+                value: value_sym.clone(),
             };
             let res_sym = tracker.symbol_for_statement(prog, cur_func, cur_block, &expr.ty, kind);
             Ok((cur_func, cur_block, res_sym))

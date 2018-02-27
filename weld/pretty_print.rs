@@ -339,6 +339,12 @@ fn print_expr_impl<T: PrintableType>(expr: &Expr<T>,
                     print_expr_impl(data, typed, indent, should_indent))
         }
 
+        SimdReduce { ref kind, ref value } => {
+            format!("simdreduce({},{})",
+                    print_expr_impl(value, typed, indent, should_indent),
+                    kind)
+        }
+
         Lookup {
             ref data,
             ref index,

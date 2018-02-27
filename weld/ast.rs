@@ -292,6 +292,10 @@ pub enum ExprKind<T: TypeBounds> {
         kind: UnaryOpKind,
         value: Box<Expr<T>>,
     },
+    SimdReduce {
+        kind: BinOpKind,
+        value: Box<Expr<T>>,
+    },
     Cast {
         kind: ScalarKind,
         child_expr: Box<Expr<T>>,
@@ -380,6 +384,7 @@ impl<T: TypeBounds> ExprKind<T> {
             Broadcast(_) => "Broadcast",
             BinOp{ .. } => "BinOp",
             UnaryOp { .. } => "UnaryOp",
+            SimdReduce { .. } => "SimdReduce",
             Cast { .. } => "Cast",
             ToVec { .. } => "ToVec",
             MakeStruct { .. } => "MakeStruct",
@@ -546,6 +551,7 @@ impl<T: TypeBounds> Expr<T> {
                 ..
             } => vec![left.as_ref(), right.as_ref()],
             UnaryOp {ref value, ..} => vec![value.as_ref()],
+            SimdReduce {ref value, ..} => vec![value.as_ref()],
             Cast { ref child_expr, .. } => vec![child_expr.as_ref()],
             ToVec { ref child_expr } => vec![child_expr.as_ref()],
             Let {
@@ -651,6 +657,7 @@ impl<T: TypeBounds> Expr<T> {
                 ..
             } => vec![left.as_mut(), right.as_mut()],
             UnaryOp { ref mut value, .. } => vec![value.as_mut()],
+            SimdReduce { ref mut value, .. } => vec![value.as_mut()],
             Cast { ref mut child_expr, .. } => vec![child_expr.as_mut()],
             ToVec { ref mut child_expr } => vec![child_expr.as_mut()],
             Let {
@@ -777,7 +784,8 @@ impl<T: TypeBounds> Expr<T> {
                                                                                     kind2 => {
                     Ok(true)
                 }
-                (&UnaryOp { .. }, &UnaryOp { .. }) => Ok(true),
+                (&UnaryOp { kind: ref kind1 , .. }, &UnaryOp { kind: ref kind2 , .. }) if kind1 == kind2 => Ok(true),
+                (&SimdReduce { kind: ref kind1 , .. }, &SimdReduce { kind: ref kind2 , .. }) if kind1 == kind2  => Ok(true),
                 (&Cast { kind: ref kind1, .. }, &Cast { kind: ref kind2, .. }) if kind1 ==
                                                                                   kind2 => Ok(true),
                 (&ToVec { .. }, &ToVec { .. }) => Ok(true),
