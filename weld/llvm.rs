@@ -175,6 +175,17 @@ pub fn compile_program(program: &Program, conf: &ParsedConf, stats: &mut Compila
     trace!("LLVM program:\n{}\n", &llvm_code);
     stats.weld_times.push(("LLVM Codegen".to_string(), start.to(end)));
 
+    let ref timestamp = format!("{}", time::now().to_timespec().sec);
+
+    // Dump files if needed. We do this here so, if there are any compile errors, the code is still
+    // dumped.
+    if conf.dump_code.enabled {
+        info!("Writing code to directory '{}' with timestamp {}", &conf.dump_code.dir.display(), timestamp);
+        write_code(&print_typed_expr(&expr), "weld", timestamp, &conf.dump_code.dir);
+        write_code(&format!("{}", &sir_prog), "sir", timestamp, &conf.dump_code.dir);
+        write_code(&llvm_code, "ll", timestamp, &conf.dump_code.dir);
+    }
+
     debug!("Started compiling LLVM");
     let compiled = try!(easy_ll::compile_module(
         &llvm_code,
@@ -201,14 +212,8 @@ pub fn compile_program(program: &Program, conf: &ParsedConf, stats: &mut Compila
     debug!("Done runtime_init call");
     stats.weld_times.push(("Runtime Init".to_string(), start.to(end)));
 
-    // Dump files if needed.
+    // Dump remaining files if needed.
     if conf.dump_code.enabled {
-        let ref timestamp = format!("{}", time::now().to_timespec().sec);
-        info!("Writing code to directory '{}' with timestamp {}", &conf.dump_code.dir.display(), timestamp);
-        write_code(&print_typed_expr(&expr), "weld", timestamp, &conf.dump_code.dir);
-        write_code(&format!("{}", &sir_prog), "sir", timestamp, &conf.dump_code.dir);
-        write_code(&llvm_code, "ll", timestamp, &conf.dump_code.dir);
-
         let llvm_op_code = llvm_op_code.unwrap();
 
         // Write the optimized LLVM code and assembly.
@@ -2808,14 +2813,14 @@ impl LlvmGenerator {
         // some builders, such as Merger, but for others we just call the merge operation multiple times.
         //
         // Special case the VecMerger, which will have type {i64, simd[T]} if it is vectorized.
-        if let VecMerger(ref t, ref op) = *builder_kind {
+        if let VecMerger(_, ref op) = *builder_kind {
             if let Struct(ref tys) = *value_ty {
                 if tys.len() != 2 {
                     return weld_err!("Codegen error: VecMerger expects {{i64,T}} merge type.");
                 }
-                // XXX This code path is the same as the non-vectorized case right now!
-                if let Simd(_) = tys[1] {
-                    let elem_ll_ty = self.llvm_type(t)?;
+                if let Simd(ref kind) = tys[1] {
+                    let ref simd_ty = Simd(*kind);
+                    let elem_ll_ty = self.llvm_type(simd_ty)?;
                     let bld_tmp = self.gen_load_var(&bld_ll_sym, &bld_ll_ty, ctx)?;
                     let val_tmp = self.gen_load_var(&val_ll_sym, &val_ll_ty, ctx)?;
                     let index_var = ctx.var_ids.next();
@@ -2834,9 +2839,10 @@ impl LlvmGenerator {
                                          bld_ptr,
                                          bld_ptr_raw,
                                          elem_ll_ty));
-                    self.gen_merge_op(&bld_ptr, &elem_var, &elem_ll_ty, op, t, ctx)?;
+                    self.gen_merge_op(&bld_ptr, &elem_var, &elem_ll_ty, op, simd_ty, ctx)?;
                 }
             }
+            return Ok(())
         } else if value_ty.is_simd() {
             match *builder_kind {
                 Merger(_, ref op) => {
