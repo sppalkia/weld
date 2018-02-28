@@ -2898,10 +2898,12 @@ impl LlvmGenerator {
                                          bld_ptr_raw,
                                          elem_ll_ty));
                     self.gen_merge_op(&bld_ptr, &elem_var, &elem_ll_ty, op, simd_ty, ctx)?;
+                    return Ok(())
                 }
             }
-            return Ok(())
-        } else if value_ty.is_simd() {
+        }
+        
+        if value_ty.is_simd() {
             match *builder_kind {
                 Merger(_, ref op) => {
                     let elem_tmp = self.gen_load_var(&val_ll_sym, &val_ll_ty, ctx)?;
@@ -3566,7 +3568,7 @@ fn llvm_prefix(ty_str: &str) -> String {
 /// Returns a vector size for a type. If a Vetor is passed in, returns the vector size of the
 /// element type. TODO this just returns 4 right now.
 fn llvm_simd_size(_: &Type) -> WeldResult<u32> {
-    Ok(4)
+    Ok(8)
 }
 
 /// Returns the LLVM name for the `ScalarKind` `k`.
