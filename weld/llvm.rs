@@ -1210,7 +1210,7 @@ impl LlvmGenerator {
         // Start the entry block by defining the function and storing all its arguments on the
         // stack (this makes them consistent with other local variables). Later, expressions may
         // add more local variables to alloca_code.
-        ctx.alloca_code.add(format!("define void @f{}({}, i32 %cur.tid) {{", func.id, arg_types));
+        ctx.alloca_code.add(format!("define void @f{}({}, i32 %cur.tid) #0 {{ ", func.id, arg_types));
         ctx.alloca_code.add(format!("fn.entry:"));
         for (arg, ty) in func.params.iter() {
             let arg_str = llvm_symbol(&arg);

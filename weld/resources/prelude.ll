@@ -213,3 +213,5 @@ define i32 @double.hash(double %arg) {
   %2 = call i32 @i64.hash(i64 %1)
   ret i32 %2
 }
+
+attributes #0 = { "target-features"="+adx,+aes,+avx,+avx2,+mmx,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3" "unsafe-fp-math"="false" "use-soft-float"="false" }
