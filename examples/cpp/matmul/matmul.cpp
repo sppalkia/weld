@@ -11,6 +11,9 @@
 
 #define RUNS 3
 
+const int64_t DIM = 8192;
+const int64_t BLOCK = 512;
+
 // Include the Weld API.
 #include "../../../c/weld.h"
 
@@ -27,6 +30,10 @@ struct args {
   int64_t BLOCK;
 };
 
+const char *blas_program = "\
+                |matrix_a: vec[f32], matrix_b: vec[f32], matrix_out: vec[f32],  DIM: i64, BLOCK: i64|\
+                cudf[do_matmul_mkl_wrapper,vec[f32]](matrix_a, matrix_b, matrix_out, DIM, BLOCK)";
+
 // Blocked SIMD with Iterate
 #if 1
 const char *program = "\
@@ -39,20 +46,31 @@ const char *program = "\
                                      merge(b,\
                                        { jj + ii * DIM,\
                                        simdreduce(iterate({k, broadcast(0.0f)}, |e:{i64, simd[f32]}|\
-                                             if(e.$0 >= k + BLOCK,\
+                                             let kk = e.$0;\
+                                             if(kk >= k + BLOCK,\
                                                {e, false},\
                                                {\
-                                               let kk = e.$0;\
                                                {\
-                                               kk + 64L,\
-                                               e.$1 + simdlookup(matrix_a, ii * DIM + kk) * simdlookup(matrix_b, jj * DIM + kk)\
-                                               + simdlookup(matrix_a, ii * DIM + kk + 8L) * simdlookup(matrix_b, jj * DIM + kk + 8L)\
-                                               + simdlookup(matrix_a, ii * DIM + kk + 16L) * simdlookup(matrix_b, jj * DIM + kk + 16L)\
-                                               + simdlookup(matrix_a, ii * DIM + kk + 24L) * simdlookup(matrix_b, jj * DIM + kk + 24L)\
-                                               + simdlookup(matrix_a, ii * DIM + kk + 32L) * simdlookup(matrix_b, jj * DIM + kk + 32L)\
-                                               + simdlookup(matrix_a, ii * DIM + kk + 40L) * simdlookup(matrix_b, jj * DIM + kk + 40L)\
-                                               + simdlookup(matrix_a, ii * DIM + kk + 48L) * simdlookup(matrix_b, jj * DIM + kk + 48L)\
-                                               + simdlookup(matrix_a, ii * DIM + kk + 56L) * simdlookup(matrix_b, jj * DIM + kk + 56L)\
+                                               kk + 128L,\
+                                               let base_ii = ii * DIM + kk;\
+                                               let base_jj = jj * DIM + kk;\
+                                               let a = simdlookup(matrix_a, base_ii) * simdlookup(matrix_b, base_jj)\
+                                               + simdlookup(matrix_a, base_ii + 8L) * simdlookup(matrix_b, base_jj + 8L);\
+                                               let b = simdlookup(matrix_a, base_ii + 16L) * simdlookup(matrix_b, base_jj + 16L)\
+                                               + simdlookup(matrix_a, base_ii + 24L) * simdlookup(matrix_b, base_jj + 24L);\
+                                               let c = simdlookup(matrix_a, base_ii + 32L) * simdlookup(matrix_b, base_jj + 32L)\
+                                               + simdlookup(matrix_a, base_ii + 40L) * simdlookup(matrix_b, base_jj + 40L);\
+                                               let d = simdlookup(matrix_a, base_ii + 48L) * simdlookup(matrix_b, base_jj + 48L)\
+                                               + simdlookup(matrix_a, base_ii + 56L) * simdlookup(matrix_b, base_jj + 56L);\
+                                               let f = simdlookup(matrix_a, base_ii + 64L) * simdlookup(matrix_b, base_jj + 64L)\
+                                               + simdlookup(matrix_a, base_ii + 72L) * simdlookup(matrix_b, base_jj + 72L);\
+                                               let g = simdlookup(matrix_a, base_ii + 80L) * simdlookup(matrix_b, base_jj + 80L)\
+                                               + simdlookup(matrix_a, base_ii + 88L) * simdlookup(matrix_b, base_jj + 88L);\
+                                               let h = simdlookup(matrix_a, base_ii + 96L) * simdlookup(matrix_b, base_jj + 96L)\
+                                               + simdlookup(matrix_a, base_ii + 104L) * simdlookup(matrix_b, base_jj + 104L);\
+                                               let m = simdlookup(matrix_a, base_ii + 112L) * simdlookup(matrix_b, base_jj + 112L)\
+                                               + simdlookup(matrix_a, base_ii + 120L) * simdlookup(matrix_b, base_jj + 120L);\
+                                               e.$1 + a + b + c + d + f + g + h + m\
                                                },\
                                                true\
                                                })\
@@ -98,6 +116,21 @@ const char *program = "|matrix_a: vec[f32], matrix_b: vec[f32], matrix_out: vec[
 
 #endif
 
+// Unblocked Naive
+#if 0
+const char *program = "|matrix_a: vec[f32], matrix_b: vec[f32], matrix_out: vec[f32],  DIM: i64, BLOCK: i64|\
+                       result(\
+                           for(rangeiter(0L, DIM, 1L), vecmerger[f32,+](matrix_out), |b,_,i|\
+                             for (rangeiter(0L, DIM, 1L), b, |b,_,j|\
+                                merge(b, {j + i * DIM, iterate({0L, 0.0f}, |e:{i64,f32}|\
+                                  let k = e.$0;\
+                                  if(k >= DIM,\
+                                    {e, false},\
+                                    {{k + 1L, e.$1 + lookup(matrix_a, k + i * DIM) * lookup(matrix_b, j + k * DIM)}, true}\
+                                  )).$1})\
+                              )))";
+#endif
+
 // Blocked scalar
 #if 0
 const char *program = "\
@@ -137,7 +170,7 @@ void do_matmul(float *A, float *B, float *C, const size_t DIM, const size_t _) {
   for (size_t i = 0; i < DIM; i++) {
     for (size_t j = 0; j < DIM; j++ ) {
       for (size_t k = 0; k < DIM; k++) {
-        C[j + i * DIM] += A[k + i * DIM] * B[j + k * DIM];
+        C[j + i * DIM] += A[k + i * DIM] * B[k + j * DIM];
       }
     }
   }
@@ -173,13 +206,25 @@ void do_matmul_mkl(float *A, float *B, float *C, const size_t DIM, const size_t 
   const float alpha = 1.0;
   const float beta = 0.0;
   cblas_sgemm(CblasColMajor,
-      CblasNoTrans,
+      CblasTrans,
       CblasNoTrans,
       DIM,
       DIM,
       DIM,
       alpha,
       A, DIM, B, DIM, beta, C, DIM);
+}
+
+
+extern "C" void do_matmul_mkl_wrapper(weld_vector *A,
+    weld_vector *B,
+    weld_vector *C,
+    int64_t *DIM,
+    int64_t *BLOCK,
+    weld_vector *result) {
+
+  do_matmul_mkl(A->data, B->data, C->data, *DIM, *BLOCK);
+  *result = *C;
 }
 
 int main() {
@@ -199,8 +244,6 @@ int main() {
     exit(1);
   }
 
-  const int64_t DIM = 2048;
-  const int64_t BLOCK = 256;
   weld_vector A, B, C;
 
   float *data_a = (float *)malloc(sizeof(float) * DIM * DIM);
@@ -210,8 +253,8 @@ int main() {
   memset(data_c, 0, sizeof(float) * DIM * DIM);
 
   for (int i = 0; i < DIM * DIM; i++) {
-    data_a[i] = 1;
-    data_b[i] = 1;
+    data_a[i] = i % 10;
+    data_b[i] = i % 10;
   }
 
   A.data = data_a;
@@ -241,17 +284,26 @@ int main() {
   // 
   ///////////////////////////////////////////////
 
-#if 0
-  // Time the C version.
-  gettimeofday(&start, NULL);
-  do_matmul(A.data, B.data, C.data, DIM, BLOCK);
-  gettimeofday(&end, NULL);
-  timersub(&end, &start, &diff);
-  printf("Polly Optimized Loop: %f seconds (first elem=%f)\n",
-      (float)diff.tv_sec + ((float)diff.tv_usec / 1000000.0), C.data[0]);
+#if 1
+
+
+  for (int i = 0 ; i < RUNS; i++) {
+
+    // Time the C version.
+    gettimeofday(&start, NULL);
+    do_matmul(A.data, B.data, C.data, DIM, BLOCK);
+    gettimeofday(&end, NULL);
+    timersub(&end, &start, &diff);
+    printf("Naive Loop: %f seconds (first elem=%f)\n",
+        (float)diff.tv_sec + ((float)diff.tv_usec / 1000000.0), C.data[0]);
+
+    memset(C.data, 0, sizeof(float) * DIM * DIM);
+
+  }
 
 #endif
 
+#if 0
   ///////////////////////////////////////////////
   //
   // MKL
@@ -272,6 +324,9 @@ int main() {
 
   }
 
+#endif
+
+#if 0
   ///////////////////////////////////////////////
   //
   // Blocked and Vectorized Matmul
@@ -292,6 +347,9 @@ int main() {
     memset(C.data, 0, sizeof(float) * DIM * DIM);
 
   }
+#endif
+
+#if 0
 
   ///////////////////////////////////////////////
   //
@@ -319,14 +377,61 @@ int main() {
     weld_value_free(result);
   }
 
+#endif
+
+#if 0
+
+  ///////////////////////////////////////////////
+  //
+  // Weld MKL
+  // 
+  ///////////////////////////////////////////////
+  
+  e = weld_error_new();
+  conf = weld_conf_new();
+
+  weld_conf_set(conf, "weld.compile.multithreadSupport", "false");
+  weld_conf_set(conf, "weld.llvm.optimization.level", "3");
+
+  m = weld_module_compile(blas_program, conf, e);
+  weld_conf_free(conf);
+
+  if (weld_error_code(e)) {
+    const char *err = weld_error_message(e);
+    printf("Error message: %s\n", err);
+    exit(1);
+  }
+
+  conf = weld_conf_new();
+
+  for (int i = 0 ; i < RUNS; i++) {
+
+    gettimeofday(&start, NULL);
+    // Run the module and get the result.
+    weld_value_t result = weld_module_run(m, conf, warg, e);
+    if (weld_error_code(e)) {
+      const char *err = weld_error_message(e);
+      printf("Error message: %s\n", err);
+      exit(1);
+    }
+    gettimeofday(&end, NULL);
+    timersub(&end, &start, &diff);
+    weld_vector *result_data = (weld_vector *)weld_value_data(result);
+    printf("Weld BLAS Loop: %f seconds (first elem=%f)\n",
+        (float)diff.tv_sec + ((float)diff.tv_usec / 1000000.0), result_data->data[0]);
+    weld_value_free(result);
+  }
+
+#endif
+
   // Free allocated data.
   free(data_a);
   free(data_b);
   free(data_c);
 
   // Free the values.
-  weld_value_free(warg);
-  weld_conf_free(conf);
+  //weld_value_free(warg);
+  //weld_conf_free(conf);
 
   weld_error_free(e);
   weld_module_free(m);
