@@ -94,6 +94,26 @@ class WeldBit(WeldType):
         """
         return c_bool
 
+class WeldUnsignedShort(WeldType):
+    """Summary
+    """
+
+    def __str__(self):
+        """Summary
+
+        Returns:
+            TYPE: Description
+        """
+        return "u16"
+
+    @property
+    def ctype_class(self):
+        """Summary
+
+        Returns:
+            TYPE: Description
+        """
+        return c_uint16
 
 class WeldInt(WeldType):
     """Summary

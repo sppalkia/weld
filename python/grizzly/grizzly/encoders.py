@@ -12,7 +12,10 @@ import sys
 import pkg_resources
 
 numpy_to_weld_type_mapping = {
+    'object': WeldVec(WeldChar()),
     'str': WeldVec(WeldChar()),
+    '|S2': WeldUnsignedShort(),
+    '|S6': WeldVec(WeldChar()),
     'int32': WeldInt(),
     'int64': WeldLong(),
     'float32': WeldFloat(),
@@ -74,6 +77,8 @@ class NumPyEncoder(WeldObjectEncoder):
                 base = WeldDouble()
             elif dtype == 'bool':
                 base = WeldBit()
+            elif dtype == '|S2':
+                base = WeldUnsignedShort()
             else:
                 base = WeldVec(WeldChar())  # TODO: Fix this
             for i in xrange(obj.ndim):
@@ -96,6 +101,8 @@ class NumPyEncoder(WeldObjectEncoder):
         if isinstance(obj, np.ndarray):
             if obj.ndim == 1 and obj.dtype == 'int32':
                 numpy_to_weld = self.utils.numpy_to_weld_int_arr
+            if obj.ndim == 1 and obj.dtype == '|S2':
+                numpy_to_weld = self.utils.numpy_to_weld_ushort_arr
             elif obj.ndim == 1 and obj.dtype == 'int64':
                 numpy_to_weld = self.utils.numpy_to_weld_long_arr
             elif obj.ndim == 1 and obj.dtype == 'float32':
@@ -176,6 +183,8 @@ class NumPyDecoder(WeldObjectDecoder):
         # ctypes._structure
         if restype == WeldVec(WeldBit()):
             weld_to_numpy = self.utils.weld_to_numpy_bool_arr
+        if restype == WeldVec(WeldUnsignedShort()):
+            weld_to_numpy = self.utils.weld_to_numpy_ushort_arr
         elif restype == WeldVec(WeldDouble()):
             weld_to_numpy = self.utils.weld_to_numpy_double_arr
         elif restype == WeldVec(WeldVec(WeldChar())):

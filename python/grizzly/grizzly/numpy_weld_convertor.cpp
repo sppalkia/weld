@@ -9,6 +9,19 @@ using namespace std;
  * Converts numpy array to Weld vector.
  */
 extern "C"
+weld::vec<uint16_t> numpy_to_weld_ushort_arr(PyObject* in) {
+    PyArrayObject* inp = (PyArrayObject*) in;
+    uint16_t dimension = (uint16_t) PyArray_DIMS(inp)[0];
+    weld::vec<uint16_t> t;
+    t.size = dimension;
+    t.ptr = (uint16_t*) PyArray_DATA(inp);
+    return t;
+}
+
+/**
+ * Converts numpy array to Weld vector.
+ */
+extern "C"
 weld::vec<int32_t> numpy_to_weld_int_arr(PyObject* in) {
     PyArrayObject* inp = (PyArrayObject*) in;
     int64_t dimension = (int64_t) PyArray_DIMS(inp)[0];
@@ -184,6 +197,18 @@ weld::vec<weld::vec<uint8_t> > numpy_to_weld_char_arr_arr(PyObject* in) {
     }
 
     return t;
+}
+
+/**
+ * Converts Weld vector to numpy array.
+ */
+extern "C"
+PyObject* weld_to_numpy_ushort_arr(weld::vec<uint16_t> inp) {
+    Py_Initialize();
+    npy_intp size = {inp.size};
+    _import_array();
+    PyObject* out = PyArray_SimpleNewFromData(1, &size, NPY_UINT16, (char*)inp.ptr);
+    return out;
 }
 
 /**

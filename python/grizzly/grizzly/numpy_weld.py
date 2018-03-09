@@ -99,6 +99,39 @@ def dot(matrix, vector):
         WeldDouble())
 
 
+def unique(vector):
+    """
+    Computes a per-element exponent of the passed-in vector.
+
+    Args:
+        vector (TYPE): Description
+    """
+    weld_type = None
+    if isinstance(vector, LazyOpResult):
+        weld_type = vector.weld_type
+        vector = vector.expr
+    elif isinstance(vector, np.ndarray):
+        weld_type = numpy_weld_impl.numpy_to_weld_type_mapping[
+            str(vector.dtype)]
+    return NumpyArrayWeld(numpy_weld_impl.unique(vector, weld_type), weld_type)
+
+
+def mean(vector):
+    """
+    Computes a per-element exponent of the passed-in vector.
+
+    Args:
+        vector (TYPE): Description
+    """
+    weld_type = None
+    if isinstance(vector, LazyOpResult):
+        weld_type = vector.weld_type
+        vector = vector.expr
+    elif isinstance(vector, np.ndarray):
+        weld_type = numpy_weld_impl.numpy_to_weld_type_mapping[
+            str(vector.dtype)]
+    return NumpyArrayWeld(numpy_weld_impl.mean(vector, weld_type), WeldDouble(), dim=0)
+
 def exp(vector):
     """
     Computes a per-element exponent of the passed-in vector.
