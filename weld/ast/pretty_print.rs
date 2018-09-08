@@ -3,6 +3,10 @@
 //! This module prints Weld expressions. The printed expression is a valid Weld program and can be
 //! re-parsed using the Weld API.
 
+extern crate regex;
+
+use regex::Regex;
+
 use ast::*;
 use ast::ExprKind::*;
 
@@ -33,7 +37,28 @@ impl PrettyPrint for Expr {
         let ref mut config = PrettyPrintConfig::new()
             .should_indent(true)
             .show_types(false);
-        to_string_impl(self, config)
+        let ref before = to_string_impl(self, config);
+
+        let primitives = Regex::new(r"(?P<ty>(i8|i16|i32|i64|f32|f64|u8|u16|u32|u64|bool))").unwrap();
+        let exprs = Regex::new(r"(?x)
+        (?P<ty>(for|zip|len|lookup|keyexists|
+            slice|sort|exp|sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|
+            log|erf|sqrt|simd|select|broadcast|serialize|deserialize|
+            iterate|cudf|simditer|fringeiter|rangeiter|nditer|iter|macro|
+            tovec|min|max|pow))\(").unwrap();
+        let builders = Regex::new("(?P<ty>(appender|merger|vecmerger|dictmerger|groupmerger))").unwrap();
+        let collections = Regex::new(r"(?P<ty>(vec|dict))").unwrap();
+
+        let builder_exprs = Regex::new(r"(?P<ty>(if|for|merge|result)\()").unwrap();
+        let let_exprs = Regex::new(r"(?P<ty>(let)\\x20)").unwrap();
+
+        let ref after = primitives.replace_all(before, "\x1b[0;33m$ty\x1b[0m");
+        let ref after = builders.replace_all(after, "\x1b[0;31m$ty\x1b[0m");
+        let ref after = builder_exprs.replace_all(after, "\x1b[0;32m$ty\x1b[0m");
+        let ref after = let_exprs.replace_all(after, "\x1b[0;33m$ty\x1b[0m");
+        let ref after = collections.replace_all(after, "\x1b[0;33m$ty\x1b[0m");
+        let after = exprs.replace_all(after, "\x1b[0;34m$ty\x1b[0m(");
+        after
     }
 
     /// Pretty print an expression with the given configuration.
