@@ -16,6 +16,9 @@ use util::stats::CompilationStats;
 
 pub use self::passes::*;
 
+use std::io;
+use std::io::prelude::*;
+
 pub mod transforms;
 mod passes;
 
@@ -24,15 +27,18 @@ pub fn apply_passes(expr: &mut Expr,
                         passes: &Vec<Pass>,
                         stats: &mut CompilationStats,
                         use_experimental: bool) -> WeldResult<()> {
+
+    let mut stdin = io::stdin();
+
     for pass in passes {
-        if pass.pass_name() == "vectorize" {
-            continue;
-        }
         let start = PreciseTime::now();
         pass.transform(expr, use_experimental)?;
         let end = PreciseTime::now();
         stats.pass_times.push((pass.pass_name(), start.to(end)));
         debug!("After {} pass:\n{}", pass.pass_name(), expr.pretty_print());
+
+
+        let _ = stdin.read(&mut [0u8]).unwrap();
     }
     Ok(())
 }

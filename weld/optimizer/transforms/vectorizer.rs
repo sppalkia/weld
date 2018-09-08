@@ -402,7 +402,7 @@ fn vectorizable(for_loop: &Expr) -> Option<HashSet<Symbol>> {
 
 /// Specifies whether to predicate non-simple expressions.
 fn should_be_predicated(e: &mut Expr) -> bool {
-    e.annotations.predicate()
+    true
 }
 
 fn get_id_element(ty: &Type, op: &BinOpKind) -> WeldResult<Option<Expr>> {
