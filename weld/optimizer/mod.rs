@@ -37,8 +37,8 @@ pub fn apply_passes(expr: &mut Expr,
         stats.pass_times.push((pass.pass_name(), start.to(end)));
         debug!("After {} pass:\n{}", pass.pass_name(), expr.pretty_print());
 
-
         let _ = stdin.read(&mut [0u8]).unwrap();
     }
+
     Ok(())
 }

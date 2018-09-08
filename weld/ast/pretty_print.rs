@@ -49,13 +49,13 @@ impl PrettyPrint for Expr {
         let builders = Regex::new("(?P<ty>(appender|merger|vecmerger|dictmerger|groupmerger))").unwrap();
         let collections = Regex::new(r"(?P<ty>(vec|dict))").unwrap();
 
-        let builder_exprs = Regex::new(r"(?P<ty>(if|for|merge|result)\()").unwrap();
-        let let_exprs = Regex::new(r"(?P<ty>(let)\\x20)").unwrap();
+        let builder_exprs = Regex::new(r"(?P<ty>(if|for|merge|result))\(").unwrap();
+        let let_exprs = Regex::new(r"(?P<ty>(let)\x20)").unwrap();
 
         let ref after = primitives.replace_all(before, "\x1b[0;33m$ty\x1b[0m");
         let ref after = builders.replace_all(after, "\x1b[0;31m$ty\x1b[0m");
-        let ref after = builder_exprs.replace_all(after, "\x1b[0;32m$ty\x1b[0m");
-        let ref after = let_exprs.replace_all(after, "\x1b[0;33m$ty\x1b[0m");
+        let ref after = builder_exprs.replace_all(after, "\x1b[0;32m$ty\x1b[0m(");
+        let ref after = let_exprs.replace_all(after, "\x1b[0;32m$ty\x1b[0m");
         let ref after = collections.replace_all(after, "\x1b[0;33m$ty\x1b[0m");
         let after = exprs.replace_all(after, "\x1b[0;34m$ty\x1b[0m(");
         after
@@ -302,11 +302,7 @@ fn to_string_impl(expr: &Expr, config: &mut PrettyPrintConfig) -> String {
             // Print types for a top-level Lambda even if show_types is disabled - this allows
             // type inference to infer the remaining types in the program.
             let mut res = join("|", ",", "|", params.iter()
-                               .map(|e| if top || config.show_types {
-                                   e.to_string()
-                               } else {
-                                   e.name.to_string()
-                               }));
+                               .map(|e| e.name.to_string()));
             config.indent += INDENT_LEVEL;
             let body = to_string_impl(body, config);
             config.indent -= INDENT_LEVEL;
