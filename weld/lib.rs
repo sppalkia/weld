@@ -145,6 +145,9 @@ use std::cell::RefCell;
 
 use uuid::Uuid;
 
+use std::io;
+use std::io::prelude::*;
+
 /// A macro for creating a `WeldError` with a message and an unknown error code.
 #[macro_export]
 macro_rules! weld_err {
@@ -673,12 +676,16 @@ impl WeldModule {
         let end = PreciseTime::now();
         let mut uniquify_dur = start.to(end);
 
+        let mut stdin = io::stdin();
+
         // Infer types of expressions.
         let start = PreciseTime::now();
         expr.infer_types()?;
         let end = PreciseTime::now();
         stats.weld_times.push(("Type Inference".to_string(), start.to(end)));
         debug!("After type inference:\n{}\n", expr.pretty_print());
+
+        let _ = stdin.read(&mut [0u8]).unwrap();
 
         // Apply optimization passes.
         optimizer::apply_passes(&mut expr,

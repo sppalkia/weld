@@ -47,7 +47,7 @@ impl PrettyPrint for Expr {
             iterate|cudf|simditer|fringeiter|rangeiter|nditer|iter|macro|
             tovec|min|max|pow))\(").unwrap();
         let builders = Regex::new("(?P<ty>(appender|merger|vecmerger|dictmerger|groupmerger))").unwrap();
-        let collections = Regex::new(r"(?P<ty>(vec|dict))").unwrap();
+        let collections = Regex::new(r"(?P<ty>(vec|dict|simd))").unwrap();
 
         let builder_exprs = Regex::new(r"(?P<ty>(if|for|merge|result))\(").unwrap();
         let let_exprs = Regex::new(r"(?P<ty>(let)\x20)").unwrap();
@@ -302,7 +302,7 @@ fn to_string_impl(expr: &Expr, config: &mut PrettyPrintConfig) -> String {
             // Print types for a top-level Lambda even if show_types is disabled - this allows
             // type inference to infer the remaining types in the program.
             let mut res = join("|", ",", "|", params.iter()
-                               .map(|e| e.name.to_string()));
+                               .map(|e| e.to_string()));
             config.indent += INDENT_LEVEL;
             let body = to_string_impl(body, config);
             config.indent -= INDENT_LEVEL;
